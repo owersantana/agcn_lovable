@@ -25,6 +25,7 @@ interface OneMapCanvasProps {
   onMapAction: (mapId: string, action: string) => void;
 }
 
+// ✅ MOVIDO PARA FORA DO COMPONENTE - Corrige o warning do React Flow
 const nodeTypes: NodeTypes = {
   mindMapNode: MindMapFlowNode,
 };
@@ -494,20 +495,15 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
     });
   }, [map, nodes, edges, onMapUpdate, toast]);
 
-  // Enhanced node types with our custom props
-  const enhancedNodeTypes = useMemo(() => ({
-    mindMapNode: (props: any) => (
-      <MindMapFlowNode
-        {...props}
-        onAddChild={handleAddNode}
-        onDeleteNode={handleDeleteNode}
-        onUpdateNode={handleNodeUpdate}
-        onToggleExpanded={handleToggleExpanded}
-        onDuplicateNode={handleDuplicateNode}
-        onConnectNode={handleConnectNode}
-        onRenameNode={handleRenameNode}
-      />
-    ),
+  // ✅ MEMOIZED PROPS - Evita recriação desnecessária
+  const nodeProps = useMemo(() => ({
+    onAddChild: handleAddNode,
+    onDeleteNode: handleDeleteNode,
+    onUpdateNode: handleNodeUpdate,
+    onToggleExpanded: handleToggleExpanded,
+    onDuplicateNode: handleDuplicateNode,
+    onConnectNode: handleConnectNode,
+    onRenameNode: handleRenameNode,
   }), [handleAddNode, handleDeleteNode, handleNodeUpdate, handleToggleExpanded, handleDuplicateNode, handleConnectNode, handleRenameNode]);
 
   if (!map) {
@@ -543,6 +539,11 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
             style: {
               ...node.style,
               border: selectedNodeId === node.id ? '2px solid #3B82F6' : node.style?.border,
+            },
+            // ✅ PASSANDO PROPS MEMOIZADAS DIRETAMENTE
+            data: {
+              ...node.data,
+              ...nodeProps,
             }
           }))}
           edges={visibleEdges}
@@ -550,7 +551,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
-          nodeTypes={enhancedNodeTypes}
+          nodeTypes={nodeTypes}
           fitView
           attributionPosition="top-right"
           className="bg-gray-50"
