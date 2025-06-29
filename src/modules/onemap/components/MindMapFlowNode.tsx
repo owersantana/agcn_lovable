@@ -65,13 +65,19 @@ export const MindMapFlowNode = memo(({
     isEditing, 
     selected, 
     editText,
-    onUpdateNode: typeof onUpdateNode 
+    onUpdateNode: typeof onUpdateNode,
+    dataObject: data
   });
 
   useEffect(() => {
-    console.log('📝 useEffect - data.text changed:', { oldEditText: editText, newText: data.text });
+    console.log('📝 useEffect - data.text changed:', { 
+      nodeId: id,
+      oldEditText: editText, 
+      newText: data.text,
+      dataUpdatedAt: data.updatedAt
+    });
     setEditText(data.text || '');
-  }, [data.text]);
+  }, [data.text, id, editText, data.updatedAt]);
 
   const startEditing = useCallback(() => {
     console.log('🚀 Starting edit mode for node:', id, 'current text:', data.text);
@@ -93,13 +99,26 @@ export const MindMapFlowNode = memo(({
     console.log('✅ Finishing edit with text:', editText, 'original text:', data.text);
     console.log('🔍 Text changed?', editText.trim() !== data.text);
     console.log('🔍 Text not empty?', editText.trim().length > 0);
+    console.log('🔍 onUpdateNode function available?', typeof onUpdateNode === 'function');
     
     if (editText.trim() && editText.trim() !== data.text) {
-      console.log('💾 Calling onUpdateNode with:', { id, updates: { text: editText.trim() } });
-      onUpdateNode(id, { text: editText.trim() });
+      console.log('💾 CALLING onUpdateNode with:', { 
+        nodeId: id, 
+        updates: { text: editText.trim() },
+        timestamp: new Date().toISOString()
+      });
+      
+      try {
+        const result = onUpdateNode(id, { text: editText.trim() });
+        console.log('💾 onUpdateNode result:', result);
+      } catch (error) {
+        console.error('❌ Error calling onUpdateNode:', error);
+      }
     } else {
       console.log('⚠️ Not updating - text unchanged or empty');
     }
+    
+    console.log('🔄 Setting isEditing to false');
     setIsEditing(false);
   }, [editText, data.text, onUpdateNode, id]);
 
@@ -141,32 +160,37 @@ export const MindMapFlowNode = memo(({
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    console.log('📝 Input changed:', { oldValue: editText, newValue });
+    console.log('📝 Input changed:', { 
+      nodeId: id,
+      oldValue: editText, 
+      newValue,
+      timestamp: new Date().toISOString()
+    });
     setEditText(newValue);
-  }, [editText]);
+  }, [editText, id]);
 
   const handleInputBlur = useCallback(() => {
-    console.log('👁️ Input blur - finishing edit after delay');
+    console.log('👁️ Input blur - finishing edit after delay for node:', id);
     setTimeout(() => {
       finishEditing();
     }, 100);
-  }, [finishEditing]);
+  }, [finishEditing, id]);
 
   const handleColorChange = useCallback((color: string) => {
-    console.log('🎨 Changing color to:', color);
+    console.log('🎨 Changing color to:', color, 'for node:', id);
     onUpdateNode(id, { backgroundColor: color });
     setShowColorPicker(false);
   }, [onUpdateNode, id]);
 
   const handleFontSizeChange = useCallback((fontSize: number) => {
-    console.log('📏 Changing font size to:', fontSize);
+    console.log('📏 Changing font size to:', fontSize, 'for node:', id);
     onUpdateNode(id, { fontSize });
     setShowFontOptions(false);
   }, [onUpdateNode, id]);
 
   const handleFontWeightToggle = useCallback(() => {
     const newWeight = data.fontWeight === 'bold' ? 'normal' : 'bold';
-    console.log('🔤 Toggling font weight to:', newWeight);
+    console.log('🔤 Toggling font weight to:', newWeight, 'for node:', id);
     onUpdateNode(id, { fontWeight: newWeight });
   }, [onUpdateNode, id, data.fontWeight]);
 

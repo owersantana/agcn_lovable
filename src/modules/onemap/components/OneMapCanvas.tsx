@@ -230,23 +230,34 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
     console.log('📊 Current nodes before update:', nodes.map(n => ({ id: n.id, text: n.data.text })));
     
     setNodes((nds) => {
-      const updatedNodes = nds.map((node) =>
-        node.id === nodeId
-          ? { 
-              ...node, 
-              data: { 
-                ...node.data, 
-                ...updates, 
-                updatedAt: new Date().toISOString() 
-              } 
-            }
-          : node
-      );
+      console.log('🔄 Inside setNodes callback');
+      console.log('📊 Previous nodes state:', nds.map(n => ({ id: n.id, text: n.data.text })));
       
-      console.log('📊 Updated nodes:', updatedNodes.map(n => ({ id: n.id, text: n.data.text })));
+      const updatedNodes = nds.map((node) => {
+        if (node.id === nodeId) {
+          const updatedNode = { 
+            ...node, 
+            data: { 
+              ...node.data, 
+              ...updates, 
+              updatedAt: new Date().toISOString() 
+            } 
+          };
+          console.log('🔄 Updating node:', { 
+            nodeId, 
+            oldData: node.data, 
+            newData: updatedNode.data,
+            updates 
+          });
+          return updatedNode;
+        }
+        return node;
+      });
+      
+      console.log('📊 Updated nodes state:', updatedNodes.map(n => ({ id: n.id, text: n.data.text })));
       return updatedNodes;
     });
-  }, [setNodes, nodes]);
+  }, [setNodes]);
 
   const handleToggleExpanded = useCallback((nodeId: string) => {
     console.log('🔄 Toggling expanded for node:', nodeId);
