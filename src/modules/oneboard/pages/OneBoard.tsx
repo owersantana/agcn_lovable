@@ -57,13 +57,20 @@ function OneBoard() {
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [sharingBoard, setSharingBoard] = useState<Board | null>(null);
 
+  console.log('OneBoard - boards state:', boards);
+  console.log('OneBoard - viewMode:', viewMode);
+  console.log('OneBoard - activeBoard:', activeBoard);
+
   // Carregar dados do localStorage
   useEffect(() => {
     const savedData = localStorage.getItem(STORAGE_KEY);
+    console.log('OneBoard - savedData from localStorage:', savedData);
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
+        console.log('OneBoard - parsedData:', parsedData);
         if (parsedData.boards && Array.isArray(parsedData.boards)) {
+          console.log('OneBoard - setting boards from localStorage:', parsedData.boards);
           setBoards(parsedData.boards);
         }
       } catch (error) {
@@ -79,6 +86,7 @@ function OneBoard() {
         boards: boardsData,
         lastUpdated: new Date().toISOString()
       };
+      console.log('OneBoard - saving to localStorage:', dataToSave);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     } catch (error) {
       console.error('Erro ao salvar dados no localStorage:', error);
@@ -86,11 +94,14 @@ function OneBoard() {
   };
 
   const handleBoardAction = (boardId: string, action: string) => {
+    console.log('OneBoard - handleBoardAction:', { boardId, action });
     const board = boards.find(b => b.id === boardId);
+    console.log('OneBoard - found board:', board);
     if (!board) return;
 
     switch (action) {
       case 'view':
+        console.log('OneBoard - setting activeBoard and switching to canvas');
         setActiveBoard(board);
         setActiveBoardColumns([]);
         setViewMode('canvas');
@@ -142,6 +153,7 @@ function OneBoard() {
   };
 
   const handleCreateBoardFromTemplate = (board: Board, columns: BoardColumn[]) => {
+    console.log('OneBoard - creating board from template:', { board, columns });
     const updatedBoards = [...boards, board];
     setBoards(updatedBoards);
     saveToStorage(updatedBoards);
@@ -152,6 +164,7 @@ function OneBoard() {
   };
 
   const handleUpdateBoard = (updatedBoard: Board) => {
+    console.log('OneBoard - updating board:', updatedBoard);
     const updatedBoards = boards.map(b => 
       b.id === updatedBoard.id ? { ...updatedBoard, updatedAt: new Date().toISOString() } : b
     );

@@ -119,6 +119,15 @@ function SortableCard({
   const totalAttachments = card.attachments?.length || 0;
   const totalMembers = card.members?.length || 0;
 
+  console.log(`Card ${card.title}:`, {
+    attachments: card.attachments,
+    totalAttachments,
+    members: card.members,
+    totalMembers,
+    shouldShowAttachments: totalAttachments > 0,
+    shouldShowMembers: totalMembers > 0
+  });
+
   return (
     <>
       <Card 
@@ -396,6 +405,11 @@ export function OneBoardColumn({
       setIsAddingCard(false);
     }
   };
+
+  console.log(`Coluna ${column.title}:`, {
+    cards: column.cards,
+    cardsCount: column.cards.length
+  });
 
   return (
     <div 
