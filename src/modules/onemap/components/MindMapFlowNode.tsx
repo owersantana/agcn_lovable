@@ -59,101 +59,124 @@ export const MindMapFlowNode = memo(({
   const inputRef = useRef<HTMLInputElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
 
-  console.log('MindMapFlowNode render:', { id, text: data.text, isEditing, selected });
+  console.log('🔄 MindMapFlowNode render:', { 
+    id, 
+    text: data.text, 
+    isEditing, 
+    selected, 
+    editText,
+    onUpdateNode: typeof onUpdateNode 
+  });
 
   useEffect(() => {
+    console.log('📝 useEffect - data.text changed:', { oldEditText: editText, newText: data.text });
     setEditText(data.text || '');
   }, [data.text]);
 
   const startEditing = useCallback(() => {
-    console.log('Starting edit mode for node:', id);
+    console.log('🚀 Starting edit mode for node:', id, 'current text:', data.text);
     setIsEditing(true);
     setEditText(data.text || '');
     
     setTimeout(() => {
       if (inputRef.current) {
+        console.log('🎯 Focusing input element');
         inputRef.current.focus();
         inputRef.current.select();
+      } else {
+        console.log('❌ Input ref not available');
       }
     }, 50);
   }, [id, data.text]);
 
   const finishEditing = useCallback(() => {
-    console.log('Finishing edit with text:', editText);
+    console.log('✅ Finishing edit with text:', editText, 'original text:', data.text);
+    console.log('🔍 Text changed?', editText.trim() !== data.text);
+    console.log('🔍 Text not empty?', editText.trim().length > 0);
+    
     if (editText.trim() && editText.trim() !== data.text) {
+      console.log('💾 Calling onUpdateNode with:', { id, updates: { text: editText.trim() } });
       onUpdateNode(id, { text: editText.trim() });
+    } else {
+      console.log('⚠️ Not updating - text unchanged or empty');
     }
     setIsEditing(false);
   }, [editText, data.text, onUpdateNode, id]);
 
   const cancelEditing = useCallback(() => {
-    console.log('Canceling edit');
+    console.log('❌ Canceling edit - reverting to original text:', data.text);
     setEditText(data.text || '');
     setIsEditing(false);
   }, [data.text]);
 
   const handleNodeDoubleClick = useCallback((e: React.MouseEvent) => {
-    console.log('Double click on node - starting edit');
+    console.log('👆 Double click on node - starting edit');
     e.preventDefault();
     e.stopPropagation();
     startEditing();
   }, [startEditing]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    console.log('Key pressed:', e.key);
+    console.log('⌨️ Key pressed:', e.key, 'current editText:', editText);
     
     e.stopPropagation();
     
     if (e.key === 'Enter') {
       e.preventDefault();
+      console.log('⏎ Enter pressed - finishing edit');
       finishEditing();
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      console.log('⎋ Escape pressed - canceling edit');
       cancelEditing();
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      console.log('Tab pressed - finishing edit and creating child');
+      console.log('⭾ Tab pressed - finishing edit and creating child');
       finishEditing();
       setTimeout(() => {
         onAddChild(id);
       }, 100);
     }
-  }, [finishEditing, cancelEditing, onAddChild, id]);
+  }, [finishEditing, cancelEditing, onAddChild, id, editText]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditText(e.target.value);
-  }, []);
+    const newValue = e.target.value;
+    console.log('📝 Input changed:', { oldValue: editText, newValue });
+    setEditText(newValue);
+  }, [editText]);
 
   const handleInputBlur = useCallback(() => {
-    console.log('Input blur - finishing edit');
+    console.log('👁️ Input blur - finishing edit after delay');
     setTimeout(() => {
       finishEditing();
     }, 100);
   }, [finishEditing]);
 
   const handleColorChange = useCallback((color: string) => {
-    console.log('Changing color to:', color);
+    console.log('🎨 Changing color to:', color);
     onUpdateNode(id, { backgroundColor: color });
     setShowColorPicker(false);
   }, [onUpdateNode, id]);
 
   const handleFontSizeChange = useCallback((fontSize: number) => {
-    console.log('Changing font size to:', fontSize);
+    console.log('📏 Changing font size to:', fontSize);
     onUpdateNode(id, { fontSize });
     setShowFontOptions(false);
   }, [onUpdateNode, id]);
 
   const handleFontWeightToggle = useCallback(() => {
     const newWeight = data.fontWeight === 'bold' ? 'normal' : 'bold';
-    console.log('Toggling font weight to:', newWeight);
+    console.log('🔤 Toggling font weight to:', newWeight);
     onUpdateNode(id, { fontWeight: newWeight });
   }, [onUpdateNode, id, data.fontWeight]);
 
   const handleRenameClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Rename button clicked for node:', id);
+    console.log('✏️ Rename button clicked for node:', id);
+    console.log('📞 Calling onRenameNode');
     onRenameNode(id);
+    console.log('🚀 Starting edit mode after rename click');
     startEditing();
   }, [onRenameNode, id, startEditing]);
 
@@ -167,7 +190,7 @@ export const MindMapFlowNode = memo(({
     }
     
     if (confirm(`Tem certeza que deseja excluir o nó "${data.text}"?`)) {
-      console.log('Deleting node:', id);
+      console.log('🗑️ Deleting node:', id);
       onDeleteNode(id);
     }
   }, [onDeleteNode, id, data.isRoot, data.text]);
@@ -175,14 +198,14 @@ export const MindMapFlowNode = memo(({
   const handleDuplicateClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Duplicating node:', id);
+    console.log('📋 Duplicating node:', id);
     onDuplicateNode(id);
   }, [onDuplicateNode, id]);
 
   const handleConnectClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Connect node clicked:', id);
+    console.log('🔗 Connect node clicked:', id);
     onConnectNode(id);
   }, [onConnectNode, id]);
 
@@ -263,6 +286,7 @@ export const MindMapFlowNode = memo(({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('➕ Add child button clicked');
               onAddChild(id);
             }}
             title="Adicionar nó filho"
@@ -289,6 +313,7 @@ export const MindMapFlowNode = memo(({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('✏️ Edit button clicked');
               startEditing();
             }}
             title="Editar texto (ou duplo clique)"
