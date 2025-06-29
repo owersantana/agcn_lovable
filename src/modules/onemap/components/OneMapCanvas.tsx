@@ -33,6 +33,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [connectingFromNode, setConnectingFromNode] = useState<string | null>(null);
 
   // Ensure all nodes have proper position properties and default values
   const initialNodes = useMemo(() => {
@@ -176,31 +177,31 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (isConnecting) {
-      if (!selectedNodeId) {
-        setSelectedNodeId(node.id);
+      if (!connectingFromNode) {
+        setConnectingFromNode(node.id);
         toast({
           title: "Nó selecionado",
           description: "Clique em outro nó para criar a conexão",
         });
-      } else if (selectedNodeId !== node.id) {
+      } else if (connectingFromNode !== node.id) {
         const params: Connection = {
-          source: selectedNodeId,
+          source: connectingFromNode,
           target: node.id,
           sourceHandle: null,
           targetHandle: null,
         };
         onConnect(params);
-        setSelectedNodeId(null);
+        setConnectingFromNode(null);
         setIsConnecting(false);
       }
     } else {
       setSelectedNodeId(selectedNodeId === node.id ? null : node.id);
     }
-  }, [isConnecting, selectedNodeId, onConnect, toast]);
+  }, [isConnecting, connectingFromNode, onConnect, selectedNodeId, toast]);
 
   const handleToggleConnect = useCallback(() => {
     setIsConnecting(!isConnecting);
-    setSelectedNodeId(null);
+    setConnectingFromNode(null);
     
     if (!isConnecting) {
       toast({
@@ -345,17 +346,30 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
       return;
     }
 
+    // Remove o nó e todos os seus filhos recursivamente
+    const nodesToDelete = new Set<string>();
+    
+    const collectNodesToDelete = (nodeId: string) => {
+      nodesToDelete.add(nodeId);
+      const node = nodes.find(n => n.id === nodeId);
+      if (node && node.data.children) {
+        node.data.children.forEach(childId => collectNodesToDelete(childId));
+      }
+    };
+    
+    collectNodesToDelete(nodeId);
+
     setNodes((nds) => 
-      nds.filter(n => n.id !== nodeId).map(node => ({
+      nds.filter(n => !nodesToDelete.has(n.id)).map(node => ({
         ...node,
         data: {
           ...node.data,
-          children: node.data.children.filter(childId => childId !== nodeId),
+          children: node.data.children.filter(childId => !nodesToDelete.has(childId)),
         }
       }))
     );
     
-    setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
+    setEdges((eds) => eds.filter(e => !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target)));
     
     if (selectedNodeId === nodeId) {
       setSelectedNodeId(null);
@@ -363,9 +377,48 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
     
     toast({
       title: "Nó removido",
-      description: "Nó excluído com sucesso!",
+      description: `Nó "${nodeToDelete.data.text}" e seus filhos foram excluídos com sucesso!`,
     });
   }, [nodes, setNodes, setEdges, selectedNodeId, toast]);
+
+  const handleDuplicateNode = useCallback((nodeId: string) => {
+    const nodeToDuplicate = nodes.find(n => n.id === nodeId);
+    if (!nodeToDuplicate) return;
+
+    const newNode: Node<MindMapNodeData> = {
+      ...nodeToDuplicate,
+      id: crypto.randomUUID(),
+      position: {
+        x: nodeToDuplicate.position.x + 150,
+        y: nodeToDuplicate.position.y + 50,
+      },
+      data: {
+        ...nodeToDuplicate.data,
+        text: `${nodeToDuplicate.data.text} (Cópia)`,
+        children: [], // Não duplicar filhos por simplicidade
+        isRoot: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    setSelectedNodeId(newNode.id);
+    
+    toast({
+      title: "Nó duplicado",
+      description: `Nó "${nodeToDuplicate.data.text}" foi duplicado com sucesso!`,
+    });
+  }, [nodes, setNodes, toast]);
+
+  const handleConnectNode = useCallback((nodeId: string) => {
+    setIsConnecting(true);
+    setConnectingFromNode(nodeId);
+    toast({
+      title: "Modo de conexão ativado",
+      description: "Clique em outro nó para criar a conexão",
+    });
+  }, [toast]);
 
   const handleSave = useCallback(() => {
     if (!map) return;
@@ -403,9 +456,11 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
         onDeleteNode={handleDeleteNode}
         onUpdateNode={handleNodeUpdate}
         onToggleExpanded={handleToggleExpanded}
+        onDuplicateNode={handleDuplicateNode}
+        onConnectNode={handleConnectNode}
       />
     ),
-  }), [handleAddNode, handleDeleteNode, handleNodeUpdate, handleToggleExpanded]);
+  }), [handleAddNode, handleDeleteNode, handleNodeUpdate, handleToggleExpanded, handleDuplicateNode, handleConnectNode]);
 
   if (!map) {
     return (

@@ -1,10 +1,32 @@
-
 import React, { useState, memo, useEffect, useRef, useCallback } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Edit3, ChevronDown, ChevronUp } from 'lucide-react';
-import { MindMapNodeData } from '../config';
+import { 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  ChevronDown, 
+  ChevronUp, 
+  Palette,
+  Type,
+  MoreHorizontal,
+  Copy,
+  Link
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { MindMapNodeData, DEFAULT_NODE_COLORS } from '../config';
 
 interface MindMapFlowNodeProps extends NodeProps {
   data: MindMapNodeData;
@@ -12,6 +34,8 @@ interface MindMapFlowNodeProps extends NodeProps {
   onDeleteNode: (nodeId: string) => void;
   onUpdateNode: (nodeId: string, updates: Partial<MindMapNodeData>) => void;
   onToggleExpanded: (nodeId: string) => void;
+  onDuplicateNode: (nodeId: string) => void;
+  onConnectNode: (nodeId: string) => void;
 }
 
 export const MindMapFlowNode = memo(({
@@ -22,9 +46,13 @@ export const MindMapFlowNode = memo(({
   onDeleteNode,
   onUpdateNode,
   onToggleExpanded,
+  onDuplicateNode,
+  onConnectNode,
 }: MindMapFlowNodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(data.text || '');
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFontOptions, setShowFontOptions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +65,6 @@ export const MindMapFlowNode = memo(({
     setIsEditing(true);
     setEditText(data.text || '');
     
-    // Force focus after a small delay
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
@@ -70,7 +97,6 @@ export const MindMapFlowNode = memo(({
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     console.log('Key pressed:', e.key);
     
-    // Always stop propagation to prevent ReactFlow from handling
     e.stopPropagation();
     
     if (e.key === 'Enter') {
@@ -83,7 +109,6 @@ export const MindMapFlowNode = memo(({
       e.preventDefault();
       console.log('Tab pressed - finishing edit and creating child');
       finishEditing();
-      // Create child with delay to ensure edit finishes first
       setTimeout(() => {
         onAddChild(id);
       }, 100);
@@ -96,39 +121,51 @@ export const MindMapFlowNode = memo(({
 
   const handleInputBlur = useCallback(() => {
     console.log('Input blur - finishing edit');
-    // Simple blur handler - just finish editing
     setTimeout(() => {
       finishEditing();
     }, 100);
   }, [finishEditing]);
 
-  const handleEditButtonClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Edit button clicked');
-    startEditing();
-  }, [startEditing]);
+  const handleColorChange = useCallback((color: string) => {
+    onUpdateNode(id, { backgroundColor: color });
+    setShowColorPicker(false);
+  }, [onUpdateNode, id]);
 
-  const handleAddChildClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Add child button clicked');
-    onAddChild(id);
-  }, [onAddChild, id]);
+  const handleFontSizeChange = useCallback((fontSize: number) => {
+    onUpdateNode(id, { fontSize });
+    setShowFontOptions(false);
+  }, [onUpdateNode, id]);
+
+  const handleFontWeightToggle = useCallback(() => {
+    const newWeight = data.fontWeight === 'bold' ? 'normal' : 'bold';
+    onUpdateNode(id, { fontWeight: newWeight });
+  }, [onUpdateNode, id, data.fontWeight]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Delete button clicked');
-    onDeleteNode(id);
-  }, [onDeleteNode, id]);
+    
+    if (data.isRoot) {
+      alert('Não é possível excluir o nó raiz');
+      return;
+    }
+    
+    if (confirm(`Tem certeza que deseja excluir o nó "${data.text}"?`)) {
+      onDeleteNode(id);
+    }
+  }, [onDeleteNode, id, data.isRoot, data.text]);
 
-  const handleToggleExpanded = useCallback((e: React.MouseEvent) => {
+  const handleDuplicateClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Toggle expanded clicked');
-    onToggleExpanded(id);
-  }, [onToggleExpanded, id]);
+    onDuplicateNode(id);
+  }, [onDuplicateNode, id]);
+
+  const handleConnectClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onConnectNode(id);
+  }, [onConnectNode, id]);
 
   const hasChildren = data.children && data.children.length > 0;
 
@@ -144,9 +181,9 @@ export const MindMapFlowNode = memo(({
       <div
         className={`
           rounded-lg shadow-md border-2 flex items-center justify-center p-3 min-w-[120px] min-h-[40px]
-          ${selected ? 'border-blue-500' : 'border-transparent'}
+          ${selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent'}
           ${data.isRoot ? 'shadow-lg' : 'shadow-md'}
-          hover:shadow-lg transition-shadow
+          hover:shadow-lg transition-all duration-200
           ${!isEditing ? 'cursor-pointer' : ''}
         `}
         style={{
@@ -176,8 +213,12 @@ export const MindMapFlowNode = memo(({
           <div className="flex items-center space-x-2">
             {hasChildren && (
               <button
-                onClick={handleToggleExpanded}
-                className="text-current opacity-70 hover:opacity-100"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleExpanded(id);
+                }}
+                className="text-current opacity-70 hover:opacity-100 transition-opacity"
               >
                 {data.isExpanded ? (
                   <ChevronDown className="h-3 w-3" />
@@ -191,35 +232,151 @@ export const MindMapFlowNode = memo(({
         )}
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Sempre visíveis quando selecionado */}
       {selected && !isEditing && (
-        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 flex items-center space-x-1 bg-white rounded-lg shadow-lg border p-1 z-10">
+          {/* Botão de adicionar filho */}
           <Button
             size="sm"
-            variant="secondary"
-            className="h-6 w-6 p-0"
-            onClick={handleAddChildClick}
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-green-100"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddChild(id);
+            }}
+            title="Adicionar nó filho"
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="h-3 w-3 text-green-600" />
           </Button>
+
+          {/* Botão de editar */}
           <Button
             size="sm"
-            variant="secondary"
-            className="h-6 w-6 p-0"
-            onClick={handleEditButtonClick}
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-blue-100"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              startEditing();
+            }}
+            title="Editar texto"
           >
-            <Edit3 className="h-3 w-3" />
+            <Edit3 className="h-3 w-3 text-blue-600" />
           </Button>
-          {!data.isRoot && (
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-6 w-6 p-0"
-              onClick={handleDeleteClick}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
+
+          {/* Color Picker */}
+          <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-purple-100"
+                title="Alterar cor"
+              >
+                <Palette className="h-3 w-3 text-purple-600" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2">
+              <div className="grid grid-cols-4 gap-2">
+                {DEFAULT_NODE_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className="w-8 h-8 rounded border-2 border-gray-200 hover:border-gray-400 transition-colors"
+                    style={{ backgroundColor: color }}
+                    onClick={() => handleColorChange(color)}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Font Options */}
+          <Popover open={showFontOptions} onOpenChange={setShowFontOptions}>
+            <PopoverTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-orange-100"
+                title="Opções de fonte"
+              >
+                <Type className="h-3 w-3 text-orange-600" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-40 p-2">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-700">Tamanho da fonte</div>
+                <div className="flex flex-wrap gap-1">
+                  {[10, 12, 14, 16, 18, 20].map((size) => (
+                    <button
+                      key={size}
+                      className={`px-2 py-1 text-xs rounded border ${
+                        data.fontSize === size 
+                          ? 'bg-blue-500 text-white border-blue-500' 
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handleFontSizeChange(size)}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className={`w-full px-2 py-1 text-xs rounded border ${
+                    data.fontWeight === 'bold'
+                      ? 'bg-blue-500 text-white border-blue-500'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  onClick={handleFontWeightToggle}
+                >
+                  Negrito
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Menu de mais opções */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+                title="Mais opções"
+              >
+                <MoreHorizontal className="h-3 w-3 text-gray-600" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48">
+              <DropdownMenuItem onClick={handleDuplicateClick}>
+                <Copy className="h-3 w-3 mr-2" />
+                Duplicar nó
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleConnectClick}>
+                <Link className="h-3 w-3 mr-2" />
+                Conectar a outro nó
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {!data.isRoot && (
+                <DropdownMenuItem 
+                  onClick={handleDeleteClick}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash2 className="h-3 w-3 mr-2" />
+                  Excluir nó
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* Indicador de nó raiz */}
+      {data.isRoot && (
+        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
+          <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+            Raiz
+          </div>
         </div>
       )}
     </div>
