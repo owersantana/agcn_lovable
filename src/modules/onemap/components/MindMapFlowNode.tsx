@@ -30,27 +30,21 @@ import {
 import { MindMapNodeData, DEFAULT_NODE_COLORS } from '../config';
 
 interface MindMapFlowNodeProps extends NodeProps {
-  data: MindMapNodeData;
-  onAddChild: (nodeId: string) => void;
-  onDeleteNode: (nodeId: string) => void;
-  onUpdateNode: (nodeId: string, updates: Partial<MindMapNodeData>) => void;
-  onToggleExpanded: (nodeId: string) => void;
-  onDuplicateNode: (nodeId: string) => void;
-  onConnectNode: (nodeId: string) => void;
-  onRenameNode: (nodeId: string) => void;
+  data: MindMapNodeData & {
+    onAddChild?: (nodeId: string) => void;
+    onDeleteNode?: (nodeId: string) => void;
+    onUpdateNode?: (nodeId: string, updates: Partial<MindMapNodeData>) => void;
+    onToggleExpanded?: (nodeId: string) => void;
+    onDuplicateNode?: (nodeId: string) => void;
+    onConnectNode?: (nodeId: string) => void;
+    onRenameNode?: (nodeId: string) => void;
+  };
 }
 
 export const MindMapFlowNode = memo(({
   id,
   data,
   selected,
-  onAddChild,
-  onDeleteNode,
-  onUpdateNode,
-  onToggleExpanded,
-  onDuplicateNode,
-  onConnectNode,
-  onRenameNode,
 }: MindMapFlowNodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(data.text || '');
@@ -59,14 +53,33 @@ export const MindMapFlowNode = memo(({
   const inputRef = useRef<HTMLInputElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
 
+  // Extract handlers from data object
+  const {
+    onAddChild,
+    onDeleteNode,
+    onUpdateNode,
+    onToggleExpanded,
+    onDuplicateNode,
+    onConnectNode,
+    onRenameNode,
+  } = data;
+
   console.log('🔄 MindMapFlowNode render:', { 
     id, 
     text: data.text, 
     isEditing, 
     selected, 
     editText,
-    onUpdateNode: typeof onUpdateNode,
-    dataObject: data
+    dataObject: data,
+    handlers: {
+      onAddChild: typeof onAddChild,
+      onDeleteNode: typeof onDeleteNode,
+      onUpdateNode: typeof onUpdateNode,
+      onToggleExpanded: typeof onToggleExpanded,
+      onDuplicateNode: typeof onDuplicateNode,
+      onConnectNode: typeof onConnectNode,
+      onRenameNode: typeof onRenameNode,
+    }
   });
 
   useEffect(() => {
@@ -101,7 +114,7 @@ export const MindMapFlowNode = memo(({
     console.log('🔍 Text not empty?', editText.trim().length > 0);
     console.log('🔍 onUpdateNode function available?', typeof onUpdateNode === 'function');
     
-    if (editText.trim() && editText.trim() !== data.text) {
+    if (editText.trim() && editText.trim() !== data.text && onUpdateNode) {
       console.log('💾 CALLING onUpdateNode with:', { 
         nodeId: id, 
         updates: { text: editText.trim() },
@@ -115,7 +128,7 @@ export const MindMapFlowNode = memo(({
         console.error('❌ Error calling onUpdateNode:', error);
       }
     } else {
-      console.log('⚠️ Not updating - text unchanged or empty');
+      console.log('⚠️ Not updating - text unchanged, empty, or onUpdateNode not available');
     }
     
     console.log('🔄 Setting isEditing to false');
@@ -153,7 +166,11 @@ export const MindMapFlowNode = memo(({
       console.log('⭾ Tab pressed - finishing edit and creating child');
       finishEditing();
       setTimeout(() => {
-        onAddChild(id);
+        if (onAddChild) {
+          onAddChild(id);
+        } else {
+          console.log('⚠️ onAddChild not available');
+        }
       }, 100);
     }
   }, [finishEditing, cancelEditing, onAddChild, id, editText]);
@@ -178,28 +195,47 @@ export const MindMapFlowNode = memo(({
 
   const handleColorChange = useCallback((color: string) => {
     console.log('🎨 Changing color to:', color, 'for node:', id);
-    onUpdateNode(id, { backgroundColor: color });
+    if (onUpdateNode) {
+      onUpdateNode(id, { backgroundColor: color });
+    } else {
+      console.log('⚠️ onUpdateNode not available for color change');
+    }
     setShowColorPicker(false);
   }, [onUpdateNode, id]);
 
   const handleFontSizeChange = useCallback((fontSize: number) => {
     console.log('📏 Changing font size to:', fontSize, 'for node:', id);
-    onUpdateNode(id, { fontSize });
+    if (onUpdateNode) {
+      onUpdateNode(id, { fontSize });
+    } else {
+      console.log('⚠️ onUpdateNode not available for font size change');
+    }
     setShowFontOptions(false);
   }, [onUpdateNode, id]);
 
   const handleFontWeightToggle = useCallback(() => {
     const newWeight = data.fontWeight === 'bold' ? 'normal' : 'bold';
     console.log('🔤 Toggling font weight to:', newWeight, 'for node:', id);
-    onUpdateNode(id, { fontWeight: newWeight });
+    if (onUpdateNode) {
+      onUpdateNode(id, { fontWeight: newWeight });
+    } else {
+      console.log('⚠️ onUpdateNode not available for font weight change');
+    }
   }, [onUpdateNode, id, data.fontWeight]);
 
   const handleRenameClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('✏️ Rename button clicked for node:', id);
-    console.log('📞 Calling onRenameNode');
-    onRenameNode(id);
+    console.log('🔍 onRenameNode available?', typeof onRenameNode === 'function');
+    
+    if (onRenameNode) {
+      console.log('📞 Calling onRenameNode');
+      onRenameNode(id);
+    } else {
+      console.log('⚠️ onRenameNode not available - falling back to direct edit');
+    }
+    
     console.log('🚀 Starting edit mode after rename click');
     startEditing();
   }, [onRenameNode, id, startEditing]);
@@ -215,7 +251,11 @@ export const MindMapFlowNode = memo(({
     
     if (confirm(`Tem certeza que deseja excluir o nó "${data.text}"?`)) {
       console.log('🗑️ Deleting node:', id);
-      onDeleteNode(id);
+      if (onDeleteNode) {
+        onDeleteNode(id);
+      } else {
+        console.log('⚠️ onDeleteNode not available');
+      }
     }
   }, [onDeleteNode, id, data.isRoot, data.text]);
 
@@ -223,14 +263,22 @@ export const MindMapFlowNode = memo(({
     e.preventDefault();
     e.stopPropagation();
     console.log('📋 Duplicating node:', id);
-    onDuplicateNode(id);
+    if (onDuplicateNode) {
+      onDuplicateNode(id);
+    } else {
+      console.log('⚠️ onDuplicateNode not available');
+    }
   }, [onDuplicateNode, id]);
 
   const handleConnectClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('🔗 Connect node clicked:', id);
-    onConnectNode(id);
+    if (onConnectNode) {
+      onConnectNode(id);
+    } else {
+      console.log('⚠️ onConnectNode not available');
+    }
   }, [onConnectNode, id]);
 
   const hasChildren = data.children && data.children.length > 0;
@@ -282,7 +330,11 @@ export const MindMapFlowNode = memo(({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onToggleExpanded(id);
+                  if (onToggleExpanded) {
+                    onToggleExpanded(id);
+                  } else {
+                    console.log('⚠️ onToggleExpanded not available');
+                  }
                 }}
                 className="text-current opacity-70 hover:opacity-100 transition-opacity"
                 title={data.isExpanded ? 'Recolher filhos' : 'Expandir filhos'}
@@ -311,7 +363,11 @@ export const MindMapFlowNode = memo(({
               e.preventDefault();
               e.stopPropagation();
               console.log('➕ Add child button clicked');
-              onAddChild(id);
+              if (onAddChild) {
+                onAddChild(id);
+              } else {
+                console.log('⚠️ onAddChild not available');
+              }
             }}
             title="Adicionar nó filho"
           >
