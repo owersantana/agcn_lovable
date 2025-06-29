@@ -12,7 +12,8 @@ import {
   Type,
   MoreHorizontal,
   Copy,
-  Link
+  Link,
+  FileEdit
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -36,6 +37,7 @@ interface MindMapFlowNodeProps extends NodeProps {
   onToggleExpanded: (nodeId: string) => void;
   onDuplicateNode: (nodeId: string) => void;
   onConnectNode: (nodeId: string) => void;
+  onRenameNode: (nodeId: string) => void;
 }
 
 export const MindMapFlowNode = memo(({
@@ -48,6 +50,7 @@ export const MindMapFlowNode = memo(({
   onToggleExpanded,
   onDuplicateNode,
   onConnectNode,
+  onRenameNode,
 }: MindMapFlowNodeProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(data.text || '');
@@ -55,6 +58,8 @@ export const MindMapFlowNode = memo(({
   const [showFontOptions, setShowFontOptions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
+
+  console.log('MindMapFlowNode render:', { id, text: data.text, isEditing, selected });
 
   useEffect(() => {
     setEditText(data.text || '');
@@ -88,7 +93,7 @@ export const MindMapFlowNode = memo(({
   }, [data.text]);
 
   const handleNodeDoubleClick = useCallback((e: React.MouseEvent) => {
-    console.log('Double click on node');
+    console.log('Double click on node - starting edit');
     e.preventDefault();
     e.stopPropagation();
     startEditing();
@@ -127,19 +132,30 @@ export const MindMapFlowNode = memo(({
   }, [finishEditing]);
 
   const handleColorChange = useCallback((color: string) => {
+    console.log('Changing color to:', color);
     onUpdateNode(id, { backgroundColor: color });
     setShowColorPicker(false);
   }, [onUpdateNode, id]);
 
   const handleFontSizeChange = useCallback((fontSize: number) => {
+    console.log('Changing font size to:', fontSize);
     onUpdateNode(id, { fontSize });
     setShowFontOptions(false);
   }, [onUpdateNode, id]);
 
   const handleFontWeightToggle = useCallback(() => {
     const newWeight = data.fontWeight === 'bold' ? 'normal' : 'bold';
+    console.log('Toggling font weight to:', newWeight);
     onUpdateNode(id, { fontWeight: newWeight });
   }, [onUpdateNode, id, data.fontWeight]);
+
+  const handleRenameClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Rename button clicked for node:', id);
+    onRenameNode(id);
+    startEditing();
+  }, [onRenameNode, id, startEditing]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -151,6 +167,7 @@ export const MindMapFlowNode = memo(({
     }
     
     if (confirm(`Tem certeza que deseja excluir o nó "${data.text}"?`)) {
+      console.log('Deleting node:', id);
       onDeleteNode(id);
     }
   }, [onDeleteNode, id, data.isRoot, data.text]);
@@ -158,12 +175,14 @@ export const MindMapFlowNode = memo(({
   const handleDuplicateClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log('Duplicating node:', id);
     onDuplicateNode(id);
   }, [onDuplicateNode, id]);
 
   const handleConnectClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log('Connect node clicked:', id);
     onConnectNode(id);
   }, [onConnectNode, id]);
 
@@ -182,7 +201,7 @@ export const MindMapFlowNode = memo(({
         className={`
           rounded-lg shadow-md border-2 flex items-center justify-center p-3 min-w-[120px] min-h-[40px]
           ${selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent'}
-          ${data.isRoot ? 'shadow-lg' : 'shadow-md'}
+          ${data.isRoot ? 'shadow-lg border-yellow-400' : 'shadow-md'}
           hover:shadow-lg transition-all duration-200
           ${!isEditing ? 'cursor-pointer' : ''}
         `}
@@ -219,6 +238,7 @@ export const MindMapFlowNode = memo(({
                   onToggleExpanded(id);
                 }}
                 className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                title={data.isExpanded ? 'Recolher filhos' : 'Expandir filhos'}
               >
                 {data.isExpanded ? (
                   <ChevronDown className="h-3 w-3" />
@@ -250,19 +270,30 @@ export const MindMapFlowNode = memo(({
             <Plus className="h-3 w-3 text-green-600" />
           </Button>
 
-          {/* Botão de editar */}
+          {/* Botão de renomear */}
           <Button
             size="sm"
             variant="ghost"
             className="h-8 w-8 p-0 hover:bg-blue-100"
+            onClick={handleRenameClick}
+            title="Renomear nó"
+          >
+            <FileEdit className="h-3 w-3 text-blue-600" />
+          </Button>
+
+          {/* Botão de editar (duplo clique alternativo) */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-indigo-100"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               startEditing();
             }}
-            title="Editar texto"
+            title="Editar texto (ou duplo clique)"
           >
-            <Edit3 className="h-3 w-3 text-blue-600" />
+            <Edit3 className="h-3 w-3 text-indigo-600" />
           </Button>
 
           {/* Color Picker */}
@@ -278,15 +309,21 @@ export const MindMapFlowNode = memo(({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-48 p-2">
-              <div className="grid grid-cols-4 gap-2">
-                {DEFAULT_NODE_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className="w-8 h-8 rounded border-2 border-gray-200 hover:border-gray-400 transition-colors"
-                    style={{ backgroundColor: color }}
-                    onClick={() => handleColorChange(color)}
-                  />
-                ))}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-700">Escolha uma cor</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {DEFAULT_NODE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className={`w-8 h-8 rounded border-2 hover:border-gray-400 transition-colors ${
+                        data.backgroundColor === color ? 'border-gray-600' : 'border-gray-200'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => handleColorChange(color)}
+                      title={`Cor ${color}`}
+                    />
+                  ))}
+                </div>
               </div>
             </PopoverContent>
           </Popover>
@@ -374,8 +411,17 @@ export const MindMapFlowNode = memo(({
       {/* Indicador de nó raiz */}
       {data.isRoot && (
         <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
-          <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-            Raiz
+          <div className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+            Nó Raiz
+          </div>
+        </div>
+      )}
+
+      {/* Indicador de modo de edição */}
+      {isEditing && (
+        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
+          <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
+            Editando... (Enter=Salvar, Esc=Cancelar, Tab=Criar filho)
           </div>
         </div>
       )}

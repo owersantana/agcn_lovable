@@ -35,9 +35,12 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connectingFromNode, setConnectingFromNode] = useState<string | null>(null);
 
+  console.log('OneMapCanvas render:', { map: map?.name, nodesCount: map?.nodes?.length });
+
   // Ensure all nodes have proper position properties and default values
   const initialNodes = useMemo(() => {
     if (!map?.nodes) return [];
+    console.log('Processing initial nodes:', map.nodes);
     return map.nodes.map(node => ({
       ...node,
       position: node.position || { x: 400, y: 300 },
@@ -56,6 +59,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
 
   const initialEdges = useMemo(() => {
     if (!map?.connections) return [];
+    console.log('Processing initial edges:', map.connections);
     return map.connections.map(conn => ({
       id: conn.id,
       source: conn.source,
@@ -76,6 +80,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   // Update local state when map changes
   React.useEffect(() => {
     if (map) {
+      console.log('Map changed, updating nodes and edges');
       const safeNodes = map.nodes.map(node => ({
         ...node,
         position: node.position || { x: 400, y: 300 },
@@ -165,6 +170,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
         },
       };
       
+      console.log('Creating new connection:', newEdge);
       setEdges((eds) => addEdge(newEdge, eds));
       
       toast({
@@ -176,6 +182,8 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   );
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    console.log('Node clicked:', node.id, 'isConnecting:', isConnecting);
+    
     if (isConnecting) {
       if (!connectingFromNode) {
         setConnectingFromNode(node.id);
@@ -200,6 +208,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   }, [isConnecting, connectingFromNode, onConnect, selectedNodeId, toast]);
 
   const handleToggleConnect = useCallback(() => {
+    console.log('Toggling connect mode:', !isConnecting);
     setIsConnecting(!isConnecting);
     setConnectingFromNode(null);
     
@@ -235,6 +244,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   }, [setNodes]);
 
   const handleToggleExpanded = useCallback((nodeId: string) => {
+    console.log('Toggling expanded for node:', nodeId);
     setNodes((nds) =>
       nds.map((node) =>
         node.id === nodeId
@@ -346,6 +356,8 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
       return;
     }
 
+    console.log('Deleting node and children:', nodeId);
+
     // Remove o nó e todos os seus filhos recursivamente
     const nodesToDelete = new Set<string>();
     
@@ -385,6 +397,8 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
     const nodeToDuplicate = nodes.find(n => n.id === nodeId);
     if (!nodeToDuplicate) return;
 
+    console.log('Duplicating node:', nodeId);
+
     const newNode: Node<MindMapNodeData> = {
       ...nodeToDuplicate,
       id: crypto.randomUUID(),
@@ -412,6 +426,7 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
   }, [nodes, setNodes, toast]);
 
   const handleConnectNode = useCallback((nodeId: string) => {
+    console.log('Starting connection from node:', nodeId);
     setIsConnecting(true);
     setConnectingFromNode(nodeId);
     toast({
@@ -420,8 +435,21 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
     });
   }, [toast]);
 
+  const handleRenameNode = useCallback((nodeId: string) => {
+    console.log('Rename node triggered for:', nodeId);
+    const nodeToRename = nodes.find(n => n.id === nodeId);
+    if (nodeToRename) {
+      toast({
+        title: "Modo de renomeação",
+        description: `Renomeando nó "${nodeToRename.data.text}". Digite o novo nome e pressione Enter.`,
+      });
+    }
+  }, [nodes, toast]);
+
   const handleSave = useCallback(() => {
     if (!map) return;
+    
+    console.log('Saving map with nodes:', nodes.length, 'edges:', edges.length);
     
     const updatedMap: MindMap = {
       ...map,
@@ -458,9 +486,10 @@ export function OneMapCanvas({ map, onMapUpdate, onMapAction }: OneMapCanvasProp
         onToggleExpanded={handleToggleExpanded}
         onDuplicateNode={handleDuplicateNode}
         onConnectNode={handleConnectNode}
+        onRenameNode={handleRenameNode}
       />
     ),
-  }), [handleAddNode, handleDeleteNode, handleNodeUpdate, handleToggleExpanded, handleDuplicateNode, handleConnectNode]);
+  }), [handleAddNode, handleDeleteNode, handleNodeUpdate, handleToggleExpanded, handleDuplicateNode, handleConnectNode, handleRenameNode]);
 
   if (!map) {
     return (
