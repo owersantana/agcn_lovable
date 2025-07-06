@@ -1,11 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { OneBoardGrid } from "../components/OneBoardGrid";
+import { trelloTemplates } from "../data/trelloTemplates";
 
 const OneBoard = () => {
+  const [boards, setBoards] = useState(trelloTemplates);
+
   useEffect(() => {
     console.log('OneBoard component mounted');
     console.log('OneBoard - Current pathname:', window.location.pathname);
-  }, []);
+    console.log('OneBoard - boards state:', boards);
+  }, [boards]);
+
+  const handleBoardAction = (action: string, boardId?: string) => {
+    console.log('OneBoard - handleBoardAction called:', { action, boardId });
+    // Placeholder function for board actions
+  };
 
   return (
     <div className="space-y-6">
@@ -17,7 +26,7 @@ const OneBoard = () => {
         </div>
       </div>
       
-      <OneBoardGrid />
+      <OneBoardGrid boards={boards} onBoardAction={handleBoardAction} />
     </div>
   );
 };
